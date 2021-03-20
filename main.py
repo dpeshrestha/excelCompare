@@ -724,6 +724,7 @@ class SpecsSAS(QWidget):
 
 
     def structureCheck(self):
+        self.err = ''
         if 'structure' not in self.specsFile.keys():
 
             # print("Failed")
@@ -754,6 +755,7 @@ class SpecsSAS(QWidget):
             {"Message": ['Structure: Variables with Incorrect Labels'], "Details": ", ".join(extraVariables)}))
 
     def paramCheck(self):
+        self.err = ''
         if 'param' not in self.specsFile.keys():
             # print("Failed")
             self.err = "Param sheet not found in file"
@@ -781,6 +783,7 @@ class SpecsSAS(QWidget):
             pd.DataFrame({"Message": "Param: Value combination missing in specs "+f"({', '.join(merged.columns[:-1])})", "Details":  missingInSpecs.values}))
 
     def visitCheck(self):
+        self.err = ''
         if 'visit' not in self.specsFile.keys():
             # print("Failed")
             self.err = "Visit sheet not found in file"
