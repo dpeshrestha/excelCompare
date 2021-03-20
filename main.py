@@ -169,7 +169,7 @@ class customQMessageBox(QDialog):
         self.text.setText("Message")
         self.text.setWordWrap(True)
         self.layout.addWidget(self.text,alignment=Qt.AlignCenter)
-        self.button = QPushButton('Ok')
+        self.button = QPushButton('OK')
         self.button.clicked.connect(self.okOptions)
         self.layout.addWidget(self.button,alignment=Qt.AlignCenter)
         self.setLayout(self.layout)
@@ -255,8 +255,10 @@ class ExcelCompare(QWidget):
                     msg.setText("Cannot read keys file")
                     msg.exec_()
                     return
-                self.oldVars = self.oldVarsAll
+
                 self.keys = {sheet: self.keys[sheet].dropna().values for sheet in self.keys.columns}
+                for sheet in self.keys.keys():
+                    self.oldVars[sheet] = self.oldVarsAll[sheet]
                 #check if vars from keys file exist specified sheets from oldvars
 
 
@@ -370,7 +372,7 @@ class ExcelCompare(QWidget):
             for i, col in enumerate(df.columns):
                 col_len = df[col].astype(str).str.len().mean()
                 col_len = max(col_len, len(col)) + 2
-                col_len = len(col)+5 if col_len > len(col)+5 else col_len
+                col_len = len(col)*3 if col_len > len(col)*3 else col_len
                 worksheet.set_column(i,i,col_len)
 
         writer.save()
@@ -630,6 +632,8 @@ class ExcelCompare(QWidget):
 class SpecsSAS(QWidget):
     def __init__(self,parent=None):
         super(SpecsSAS, self).__init__(parent)
+        self.err = ''
+        self.specsFile = {}
         self.setupUi(self)
         self.majorFindings = pd.DataFrame(columns=['Message', 'Details'])
         self.missingTests = pd.DataFrame(columns=['Subject', 'Visit', 'Timepoint', 'Test Code'])
@@ -665,7 +669,10 @@ class SpecsSAS(QWidget):
             msg.exec_()
             return
         try:
-            self.specsFile = pd.read_excel(self.specsLineEdit.text(),sheet_name=None)
+            specsFile = pd.read_excel(self.specsLineEdit.text(),sheet_name=None)
+            for sheet in specsFile.keys():
+                self.specsFile[sheet.lower()] = specsFile[sheet]
+
         except:
             msg.setText('Unable to read excel file')
             msg.exec_()
@@ -683,8 +690,20 @@ class SpecsSAS(QWidget):
         #Compare after validation
         # print(self.sasData)
         self.structureCheck()
+        if len(self.err) > 0:
+            msg.setText(self.err)
+            msg.exec_()
+            return
         self.paramCheck()
+        if len(self.err) > 0:
+            msg.setText(self.err)
+            msg.exec_()
+            return
         self.visitCheck()
+        if len(self.err) > 0:
+            msg.setText(self.err)
+            msg.exec_()
+            return
         #structure sheet
         date = datetime.now().strftime("%Y-%m-%d %H-%M")
         logFile = os.path.join(self.logLineEdit.text(), f"compare_{date}.xlsx")
@@ -694,8 +713,9 @@ class SpecsSAS(QWidget):
             df.to_excel(writer, sheet_name=sheetname, index=False)
             worksheet = writer.sheets[sheetname]
             for i, col in enumerate(df.columns):
-                col_len = df[col].astype(str).str.len().max()
+                col_len = df[col].astype(str).str.len().mean()
                 col_len = max(col_len, len(col)) + 2
+                col_len = len(col)*3 if col_len > len(col)*3 else col_len
                 worksheet.set_column(i, i, col_len)
         writer.save()
         msg.setWindowTitle("Completed")
@@ -706,15 +726,16 @@ class SpecsSAS(QWidget):
     def structureCheck(self):
         if 'structure' not in self.specsFile.keys():
 
-            print("Failed")
+            # print("Failed")
+            self.err = "Structure sheet not found in file"
             self.majorFindings  = self.majorFindings.append(pd.DataFrame({"Message":['Structure sheet'],"Details":["Missing"]}))
             return
         print("Success")
         self.majorFindings  = self.majorFindings.append(pd.DataFrame({"Message": ['Structure sheet'], "Details":[ "Found"]}))
         if len(set(['variable','variable label']).difference([x.lower() for x in self.specsFile['structure'].columns.to_list()]))>0:
-
+            self.err = "Variables missing in structure sheet"
             self.majorFindings  = self.majorFindings.append(pd.DataFrame({"Message": ['Structure Sheet with Variables ‘Variable’ & ’Variable Label’'], "Details": ["Missing"]}))
-            print("Failed")
+            # print("Failed")
             return
         else:
             print("Success")
@@ -723,8 +744,8 @@ class SpecsSAS(QWidget):
 
         varWithLabels = pd.DataFrame({"Variable": list(self.meta.column_names), "Variable Label": list(self.meta.column_labels)})
         # merged = self.specsFile['structure'].merge(varWithLabels, on =["Variable","Variable Label"], how='outer', indicator=True)
-        missingVariables = list(set(self.specsFile['structure']['Variable'].to_list()).difference(varWithLabels['Variable'].to_list()))
-        extraVariables = list(set(varWithLabels['Variable'].to_list()).difference(self.specsFile['structure']['Variable'].to_list()))
+        missingVariables = list(set(self.specsFile['structure']['Variable'].dropna().to_list()).difference(varWithLabels['Variable'].dropna().to_list()))
+        extraVariables = list(set(varWithLabels['Variable'].dropna().to_list()).difference(self.specsFile['structure']['Variable'].dropna().to_list()))
         self.majorFindings = self.majorFindings.append(pd.DataFrame(
             {"Message": ['Structure: Missing Variables'], "Details":", ".join(missingVariables)}))
         self.majorFindings = self.majorFindings.append(pd.DataFrame(
@@ -734,7 +755,8 @@ class SpecsSAS(QWidget):
 
     def paramCheck(self):
         if 'param' not in self.specsFile.keys():
-            print("Failed")
+            # print("Failed")
+            self.err = "Param sheet not found in file"
             self.majorFindings = self.majorFindings.append(pd.DataFrame({"Message":["Param sheet"],"Details":["Missing"]}))
             return
         print("Success")
@@ -742,7 +764,8 @@ class SpecsSAS(QWidget):
             pd.DataFrame({"Message": ["Param sheet"], "Details": ["Found"]}))
         self.specsFile['param'] = self.specsFile['param'].dropna(axis=1,how='all') #remove this
         if len(set(self.specsFile['param'].columns).difference(self.sasData.columns)) >0 :
-            print("Failed")
+            # print("Failed")
+            self.err = "Matching Variables not found in data"
             self.majorFindings = self.majorFindings.append(
                 pd.DataFrame({"Message": ["Param: Matching Variables in Data"], "Details": ["Missing"]}))
             return
@@ -759,7 +782,8 @@ class SpecsSAS(QWidget):
 
     def visitCheck(self):
         if 'visit' not in self.specsFile.keys():
-            print("Failed")
+            # print("Failed")
+            self.err = "Visit sheet not found in file"
             self.majorFindings = self.majorFindings.append(
                 pd.DataFrame(
                     {"Message": ["Visit Sheet with VISIT & VISITNUM"],
@@ -768,7 +792,8 @@ class SpecsSAS(QWidget):
         print("Success")
 
         if len(set(['VISIT','VISITNUM']).intersection(self.specsFile['visit'].columns)) <1:
-            print("Failed")
+            # print("Failed")
+            self.err = "VISIT & VISITNUM not found in specs file"
             self.majorFindings = self.majorFindings.append(
                 pd.DataFrame(
                     {"Message": ["Visit Sheet with VISIT & VISITNUM"],
@@ -778,7 +803,8 @@ class SpecsSAS(QWidget):
         print("Success")
 
         if len(set(['VISIT', 'VISITNUM']).intersection(self.sasData.columns)) < 1:
-            print("Failed")
+            # print("Failed")
+            self.err = "VISIT & VISITNUM not found in sas file"
             self.majorFindings = self.majorFindings.append(
                 pd.DataFrame(
                     {"Message": ["Visit Sheet with VISIT & VISITNUM"],
@@ -811,7 +837,8 @@ class SpecsSAS(QWidget):
         prefix = self.varLineEdit.text().upper()
         prefixVar = prefix+"TPT"
         if len(set([subjVar,'VISIT',prefixVar]).intersection(self.specsFile['visit'].columns)) <1:
-            print("Failed")
+            # print("Failed")
+            self.err = "Variables not found in specs or data file"
             self.majorFindings = self.majorFindings.append(
                 pd.DataFrame(
                     {"Message": f"Visit: {subjVar}/VISIT/{prefixVar}  variables in both specs & Data",
@@ -819,8 +846,8 @@ class SpecsSAS(QWidget):
             return
         print("Success")
         if len(set([subjVar,'VISIT',prefixVar]).intersection(self.sasData.columns)) <1:
-            print("Failed")
-
+            # print("Failed")
+            self.err = "Variables not found in specs or data file"
             self.majorFindings = self.majorFindings.append(
                 pd.DataFrame(
                     {"Message": f"Visit: {subjVar}/VISIT/{prefixVar} variables in both specs & Data",
@@ -833,11 +860,15 @@ class SpecsSAS(QWidget):
                 {"Message": f"Visit: {subjVar}/VISIT/{prefixVar} variables in both specs & Data",
                  "Details": ["Found"]}))
 
+        #get data from sas and remove duplicates
+
+
         self.missingTests = pd.DataFrame(columns=["Subject","Visit","Timepoint","Test Code"])
-        possibleCombinations = self.specsFile['param'][[prefix+"TESTCD"]].assign(foo=1).merge(self.specsFile['visit'].assign(foo=1)).drop('foo',1)
-        self.specsFile['visit'] = self.specsFile['visit'].append({k: np.nan for k in self.specsFile['visit'].columns},
-                                                                 ignore_index=True)
-        self.specsFile['visit'] =self.specsFile['visit'].iloc[:-1,:]
+        possibleCombinations = self.specsFile['visit'].drop_duplicates().assign(foo=1).merge(self.sasData.assign(foo=1)).drop('foo',1)[['VISIT',prefixVar,subjVar]].sort_values(subjVar).drop_duplicates().assign(foo=1).merge(self.specsFile['param'][[prefix+"TESTCD"]].assign(foo=1)).drop('foo',1).drop_duplicates()
+
+        # self.specsFile['visit'] = self.specsFile['visit'].append({k: np.nan for k in self.specsFile['visit'].columns},
+        #                                                          ignore_index=True)
+        # self.specsFile['visit'] =self.specsFile['visit'].iloc[:-1,:]
         merged = possibleCombinations.merge(self.sasData[[subjVar, 'VISIT', prefixVar, prefix + 'TESTCD']],how='outer',indicator=True)
         missingInData = merged[merged['_merge']=='left_only']
         self.missingTests['Subject'] = missingInData[subjVar]
