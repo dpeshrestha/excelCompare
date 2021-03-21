@@ -1,21 +1,23 @@
 from PySide2.QtWidgets import *
 from PySide2.QtCore import *
-from PySide2.QtGui import  *
+from PySide2.QtGui import *
 import sys
 import os
 import numpy as np
 import pandas as pd
-from datetime import  datetime
+from datetime import datetime
 import itertools
 import pyreadstat
 import xlsxwriter
 
 rootPath = os.path.dirname(os.path.abspath(__file__))
 
+
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
+
 
 class App(QMainWindow):
     def __init__(self):
@@ -31,8 +33,6 @@ class App(QMainWindow):
         self.tab_widget = TabWidget(self)
         self.setCentralWidget(self.tab_widget)
         self.show()
-
-
 
     # Creating tab widgets
 
@@ -73,7 +73,7 @@ class TabWidget(QWidget):
 
 
 class ListModel(QAbstractListModel):
-    def __init__(self,data=[]):
+    def __init__(self, data=[]):
         super(ListModel, self).__init__()
         self._data = data
 
@@ -82,18 +82,18 @@ class ListModel(QAbstractListModel):
         if index.isValid():
             return Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled | defaultFalgs
         else:
-            return  Qt.ItemIsDropEnabled | defaultFalgs
+            return Qt.ItemIsDropEnabled | defaultFalgs
 
-    def data(self, index, role:Qt.DisplayRole):
+    def data(self, index, role: Qt.DisplayRole):
         if role == Qt.DisplayRole:
             return str(self._data[index.row()])
 
     def rowCount(self, parent):
-        return  len(self._data)
+        return len(self._data)
 
 
 class DragDropListView(QListView):
-    def __init__(self,parent=None):
+    def __init__(self, parent=None):
         super(DragDropListView, self).__init__(parent)
 
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -104,13 +104,13 @@ class DragDropListView(QListView):
         self.setDragDropMode(QAbstractItemView.DragDrop)
 
     def dragEnterEvent(self, event):
-        if self.objectName() == 'excludedListView' or self.objectName() == 'includedListView' :
-            if event.source().objectName()=='excludedListView' or event.source().objectName()=='includedListView':
+        if self.objectName() == 'excludedListView' or self.objectName() == 'includedListView':
+            if event.source().objectName() == 'excludedListView' or event.source().objectName() == 'includedListView':
                 event.setAccepted(True)
                 return
 
         if self.objectName() == 'keysListView' or self.objectName() == 'varListView':
-            if event.source().objectName()=='keysListView' or event.source().objectName()=='varListView':
+            if event.source().objectName() == 'keysListView' or event.source().objectName() == 'varListView':
                 event.setAccepted(True)
                 return
 
@@ -126,7 +126,7 @@ class DragDropListView(QListView):
             return
 
         tempVal = source.model()._data[sourceId.row()]
-        if self==source:
+        if self == source:
             self.model().beginRemoveRows(QModelIndex(), index.row(), index.row())
             del self.model()._data[sourceId.row()]
             self.model().endRemoveRows()
@@ -140,24 +140,23 @@ class DragDropListView(QListView):
         else:
             destIndex = index.row()
 
-        self.model().beginInsertRows(QModelIndex(),destIndex,destIndex)
+        self.model().beginInsertRows(QModelIndex(), destIndex, destIndex)
 
         if self.dropIndicatorPosition() == QAbstractItemView.OnViewport:
             self.model()._data.append(tempVal)
         else:
-            self.model()._data.insert(destIndex,tempVal)
+            self.model()._data.insert(destIndex, tempVal)
         self.model().endInsertRows()
 
         if self.objectName() == 'keysListView' or source.objectName() == 'keysListView':
-            if len(self.parent().includedListView.selectedIndexes())>0:
+            if len(self.parent().includedListView.selectedIndexes()) > 0:
                 sheetName = self.parent().includedListView.selectedIndexes()[0].data()
                 self.parent().keys[sheetName] = self.parent().keysListView.model()._data
-        if self!=source and self.objectName() == 'includedListView':
+        if self != source and self.objectName() == 'includedListView':
             self.parent().keys[tempVal] = []
-        if self!=source and source.objectName() == 'includedListView':
+        if self != source and source.objectName() == 'includedListView':
             del self.parent().keys[tempVal]
         self.clearSelection()
-
 
 
 class customQMessageBox(QDialog):
@@ -168,10 +167,10 @@ class customQMessageBox(QDialog):
         self.text = QLabel()
         self.text.setText("Message")
         self.text.setWordWrap(True)
-        self.layout.addWidget(self.text,alignment=Qt.AlignCenter)
+        self.layout.addWidget(self.text, alignment=Qt.AlignCenter)
         self.button = QPushButton('OK')
         self.button.clicked.connect(self.okOptions)
-        self.layout.addWidget(self.button,alignment=Qt.AlignCenter)
+        self.layout.addWidget(self.button, alignment=Qt.AlignCenter)
         self.setLayout(self.layout)
         self.setWindowTitle("Warning")
 
@@ -179,22 +178,24 @@ class customQMessageBox(QDialog):
         self.optionsOK = True
         self.close()
 
-    def setText(self,text):
+    def setText(self, text):
         self.text.setText(text)
 
 
 class ExcelCompare(QWidget):
-    def __init__(self,parent=None):
+    def __init__(self, parent=None):
         super(ExcelCompare, self).__init__(parent)
         self.keys = {}
         self.oldVars = {}
         self.setupUi(self)
         self.oldPushButton.clicked.connect(self.setOldFilePath)
-        self.newPushButton.clicked.connect(lambda _:self.newLineEdit.setText(
-            QFileDialog.getOpenFileUrl(self,"Select New Excel File",QUrl(rootPath),(u"*.xls *.xlsx"))[0].path().strip('/')))
+        self.newPushButton.clicked.connect(lambda _: self.newLineEdit.setText(
+            QFileDialog.getOpenFileUrl(self, "Select New Excel File", QUrl(rootPath), (u"*.xls *.xlsx"))[
+                0].path().strip('/')))
         self.keysPushButton.clicked.connect(self.populateKeyListView)
         self.logPushButton.clicked.connect(lambda _: self.logLineEdit.setText(
-            QFileDialog.getExistingDirectoryUrl(self,'Select Folder to Store Findings',QUrl(rootPath)).path().strip('/')))
+            QFileDialog.getExistingDirectoryUrl(self, 'Select Folder to Store Findings', QUrl(rootPath)).path().strip(
+                '/')))
         # self.oldLineEdit.keyPressEvent = lambda e:self.isEnterPressed(e)
         # self.oldLineEdit.mouseReleaseEvent = self.isEnterPressed
         self.oldLineEdit.returnPressed.connect(self.loadOldListView)
@@ -213,7 +214,7 @@ class ExcelCompare(QWidget):
             self.keys = pd.read_csv(self.keysLineEdit.text()).to_dict('list')
         except:
             if self.keysLineEdit.text() == '':
-                self.keys = {sheet:[] for sheet in self.includedListView.model()._data}
+                self.keys = {sheet: [] for sheet in self.includedListView.model()._data}
             msg = customQMessageBox()
             msg.setText("Invalid keys file")
             msg.exec_()
@@ -240,16 +241,15 @@ class ExcelCompare(QWidget):
             msg.exec_()
             return
 
-
-        if self.keysLineEdit.text() != '':#keys path empty
-            if not os.path.exists(self.keysLineEdit.text()): #keys file doesnt exist
+        if self.keysLineEdit.text() != '':  # keys path empty
+            if not os.path.exists(self.keysLineEdit.text()):  # keys file doesnt exist
                 msg.setText('Keys File doesn’t exist')
                 msg.exec_()
                 return
-            else:#keyfile specified
-                #read keys and populate dict
+            else:  # keyfile specified
+                # read keys and populate dict
                 try:
-                   self.keys = pd.read_csv(self.keysLineEdit.text())
+                    self.keys = pd.read_csv(self.keysLineEdit.text())
                 except:
                     msg = customQMessageBox()
                     msg.setText("Cannot read keys file")
@@ -259,18 +259,19 @@ class ExcelCompare(QWidget):
                 self.keys = {sheet: self.keys[sheet].dropna().values for sheet in self.keys.columns}
                 for sheet in self.keys.keys():
                     self.oldVars[sheet] = self.oldVarsAll[sheet]
-                #check if vars from keys file exist specified sheets from oldvars
+                # check if vars from keys file exist specified sheets from oldvars
 
 
 
-        else:#key file is empty
+        else:  # key file is empty
             sheetsWithoutKeys = [sheet for sheet in self.keys.keys() if len(self.keys[sheet]) < 1]
-            if len(sheetsWithoutKeys) >0:
-                msg.setText("Keys not specified for sheet(s):\n"+"\n".join(sheetsWithoutKeys))
+            if len(sheetsWithoutKeys) > 0:
+                msg.setText("Keys not specified for sheet(s):\n" + "\n".join(sheetsWithoutKeys))
                 msg.exec_()
                 return
             for sheet in self.includedListView.model()._data:
                 self.oldVars[sheet] = self.oldVarsAll[sheet]
+
         sheetsNotInOld = set(self.keys.keys()).difference(self.oldVars.keys())
         keysNotInOld = [
             [sheet + "." + key for key in set(self.keys[sheet]).difference(set(self.oldVars[sheet].columns.to_list()))]
@@ -285,13 +286,14 @@ class ExcelCompare(QWidget):
         # compare Excel Files
         date = datetime.now().strftime("%Y-%m-%d %H-%M")
 
-        logFile =  os.path.join(self.logLineEdit.text(),f"compare_{date}.xlsx")
+        logFile = os.path.join(self.logLineEdit.text(), f"compare_{date}.xlsx")
 
-        majorUpdates = pd.DataFrame(columns=['Message','Details'])
+        majorUpdates = pd.DataFrame(columns=['Message', 'Details'])
         recordUpdates = pd.DataFrame(columns=['Message', 'SheetName', 'Key Variables', 'Key Values'])
-        valueUpdates =  pd.DataFrame(columns=['SheetName', 'Key Variables', 'Key Values','Column Name','Old Value','New Value'])
+        valueUpdates = pd.DataFrame(
+            columns=['SheetName', 'Key Variables', 'Key Values', 'Column Name', 'Old Value', 'New Value'])
         try:
-            self.newVars = pd.read_excel(self.newLineEdit.text(),sheet_name=None)
+            self.newVars = pd.read_excel(self.newLineEdit.text(), sheet_name=None).replace(np.nan, '')
         except:
             msg = customQMessageBox()
             msg.setText("Cannot read new excel file")
@@ -301,23 +303,27 @@ class ExcelCompare(QWidget):
             self.newVars[sheet].columns = [x.upper() for x in self.newVars[sheet].columns.to_list()]
 
         droppedSheets = set(self.oldVarsAll.keys()).difference(set(self.newVars.keys()))
-        if len(droppedSheets)>0:majorUpdates = majorUpdates.append(pd.DataFrame({"Message": "Dropped Sheet", 'Details': list(droppedSheets)}),ignore_index=True)
-
+        if len(droppedSheets) > 0: majorUpdates = majorUpdates.append(
+            pd.DataFrame({"Message": "Dropped Sheet", 'Details': list(droppedSheets)}), ignore_index=True)
 
         newSheets = set(self.newVars.keys()).difference(set(self.oldVarsAll.keys()))
-        if len(newSheets)>0:majorUpdates = majorUpdates.append(pd.DataFrame({"Message": "New Sheet", 'Details': list(newSheets)}),ignore_index=True)
+        if len(newSheets) > 0: majorUpdates = majorUpdates.append(
+            pd.DataFrame({"Message": "New Sheet", 'Details': list(newSheets)}), ignore_index=True)
 
         commonSheets = set(self.newVars.keys()).intersection(set(self.oldVars.keys()))
-        droppedColumns = [[sheet+"."+x for x in list(set(self.oldVars[sheet].columns.to_list()).difference(set(self.newVars[sheet].columns.to_list())))] for sheet in commonSheets]
+        droppedColumns = [[sheet + "." + x for x in list(
+            set(self.oldVars[sheet].columns.to_list()).difference(set(self.newVars[sheet].columns.to_list())))] for
+                          sheet in commonSheets]
         droppedColumns = [col for sublist in droppedColumns for col in sublist]
-        if len(droppedColumns) > 0: majorUpdates= majorUpdates.append(pd.DataFrame({"Message": "Dropped Variable", 'Details': list(droppedColumns)}),
-                                                   ignore_index=True)
+        if len(droppedColumns) > 0: majorUpdates = majorUpdates.append(
+            pd.DataFrame({"Message": "Dropped Variable", 'Details': list(droppedColumns)}),
+            ignore_index=True)
 
         newColumns = [[sheet + "." + x for x in list(
             set(self.newVars[sheet].columns.to_list()).difference(set(self.oldVars[sheet].columns.to_list())))] for
-                          sheet in commonSheets]
+                      sheet in commonSheets]
         newColumns = [col for sublist in newColumns for col in sublist]
-        if len(newColumns) > 0:majorUpdates= majorUpdates.append(
+        if len(newColumns) > 0: majorUpdates = majorUpdates.append(
             pd.DataFrame({"Message": "New Variable", 'Details': list(newColumns)}),
             ignore_index=True)
 
@@ -332,56 +338,66 @@ class ExcelCompare(QWidget):
             countOld = pd.DataFrame(countOld).reset_index().rename(columns={0: 'oldCount'})
             countNew = self.newVars[sheet].groupby(keys).size()
             countNew = pd.DataFrame(countNew).reset_index().rename(columns={0: 'newCount'})
-            merged = countOld.merge(countNew,how='outer').fillna(0)
+            merged = countOld.merge(countNew, how='outer').fillna(0)
             # merged['status'] = ''
             droppedRecords = np.where(merged['oldCount'] > merged['newCount'])[0]
             newRecords = np.where(merged['oldCount'] < merged['newCount'])[0]
-            if len(droppedRecords)>0:
+            if len(droppedRecords) > 0:
                 droppedRecords = merged.iloc[droppedRecords]
                 recordUpdates = recordUpdates.append(pd.DataFrame(
-                    {'Message':'Dropped Record','SheetName':sheet,'Key Variables':", ".join(keys),
-                     "Key Values":[", ".join(x) for x in droppedRecords[keys].astype(str).apply(lambda x:[x.name+"="+ w for w in x]).values]}),ignore_index=True)
-            if len(newRecords)>0:
+                    {'Message': 'Dropped Record', 'SheetName': sheet, 'Key Variables': ", ".join(keys),
+                     "Key Values": [", ".join(x) for x in droppedRecords[keys].astype(str).apply(
+                         lambda x: [x.name + "=" + w for w in x]).values]}), ignore_index=True)
+            if len(newRecords) > 0:
                 newRecords = merged.iloc[newRecords]
                 recordUpdates = recordUpdates.append(pd.DataFrame(
                     {'Message': 'New Record', 'SheetName': sheet, 'Key Variables': ", ".join(keys),
-                     "Key Values":[", ".join(x) for x in newRecords[keys].astype(str).apply(lambda x:[x.name+"="+w for w in x]).values]}),ignore_index=True)
+                     "Key Values": [", ".join(x) for x in newRecords[keys].astype(str).apply(
+                         lambda x: [x.name + "=" + w for w in x]).values]}), ignore_index=True)
 
             suffix_stamp = str(datetime.now().timestamp())[:2]
-            merged = self.oldVars[sheet].merge(self.newVars[sheet],on=keys,how='outer',
-                                               suffixes=(f'_old_{suffix_stamp}',f'_new_{suffix_stamp}'),
-                                               indicator=True).astype(str).fillna('-').replace(np.nan,'')
+            merged = self.oldVars[sheet].merge(self.newVars[sheet], on=keys, how='outer',
+                                               suffixes=(f'_old_{suffix_stamp}', f'_new_{suffix_stamp}'),
+                                               indicator=True).astype(str).fillna('-').replace(np.nan, '')
             merged = merged[merged['_merge'] == 'both']
 
             old_cols = [col for col in merged.columns if f'_old_{suffix_stamp}' in col]
             new_cols = [col for col in merged.columns if f'_new_{suffix_stamp}' in col]
-            for x,y in zip(old_cols,new_cols):
-                changed = np.where(merged[x]!=merged[y])[0]
-                if len(changed) >0:
-                    valueUpdates = valueUpdates.append(pd.DataFrame({'SheetName':sheet,'Key Variables':", ".join(keys),"Key Values":[", ".join(x) for x in merged.iloc[changed][keys].astype(str).apply(lambda x:[x.name+"="+w for w in x]).values],"Column Name":x[:-7],"Old Value":merged[x].iloc[changed].values,"New Value":merged[y].iloc[changed].values}),ignore_index=True)
-        valueUpdates = valueUpdates.replace(np.nan, '')
-        writer = pd.ExcelWriter(logFile,engine='xlsxwriter')
-        dfs = {'Major Updates':majorUpdates,'Record Updates':recordUpdates,'Value Updates':valueUpdates}
+            for x, y in zip(old_cols, new_cols):
+                changed = np.where(merged[x] != merged[y])[0]
+                if len(changed) > 0:
+                    valueUpdates = valueUpdates.append(pd.DataFrame(
+                        {'SheetName': sheet, 'Key Variables': ", ".join(keys), "Key Values": [", ".join(x) for x in
+                                                                                              merged.iloc[changed][
+                                                                                                  keys].astype(
+                                                                                                  str).apply(lambda x: [
+                                                                                                  x.name + "=" + w for w
+                                                                                                  in x]).values],
+                         "Column Name": x[:-7], "Old Value": merged[x].iloc[changed].values,
+                         "New Value": merged[y].iloc[changed].values}), ignore_index=True)
+
+        writer = pd.ExcelWriter(logFile, engine='xlsxwriter')
+        dfs = {'Major Updates': majorUpdates, 'Record Updates': recordUpdates, 'Value Updates': valueUpdates}
         workbook = writer.book
         # workbook = writer.book
-        for sheetname,df in dfs.items():
-            df.to_excel(writer,sheet_name=sheetname,index=False)
+        for sheetname, df in dfs.items():
+            df.to_excel(writer, sheet_name=sheetname, index=False)
 
             worksheet = writer.sheets[sheetname]
             # format = workbook.add_format({'text_wrap':True})
             for i, col in enumerate(df.columns):
                 col_len = df[col].astype(str).str.len().mean()
                 col_len = max(col_len, len(col)) + 2
-                col_len = len(col)*3 if col_len > len(col)*3 else col_len
-                worksheet.set_column(i,i,col_len)
+                col_len = len(col) * 3 if col_len > len(col) * 3 else col_len
+                worksheet.set_column(i, i, col_len)
 
         writer.save()
 
         df = pd.DataFrame()
         for sheet in self.keys.keys():
-            df = pd.concat([df,pd.DataFrame({sheet:self.keys[sheet]})],ignore_index=True, axis=1)
+            df = pd.concat([df, pd.DataFrame({sheet: self.keys[sheet]})], ignore_index=True, axis=1)
         df.columns = self.keys.keys()
-        df.to_csv(os.path.join(self.logLineEdit.text(),f"keys_{date}.csv"),index=False)
+        df.to_csv(os.path.join(self.logLineEdit.text(), f"keys_{date}.csv"), index=False)
         msg.setWindowTitle("Completed")
         msg.setText(f'Comparison Completed. Check the files compare_{date}.xlsx in selected folder for findings.')
         msg.exec_()
@@ -390,27 +406,28 @@ class ExcelCompare(QWidget):
     def populateVarListView(self):
         self.keysListView.model()._data = []
         indexList = self.includedListView.selectedIndexes()
-        if len(indexList) >0:
+        if len(indexList) > 0:
             index = indexList[0]
             if index.isValid():
                 self.varListView.setModel(ListModel(self.oldVarsAll[index.data()].columns.to_list()))
                 if len(self.keys[index.data()]) > 0:
                     if index.data() in self.keys.keys():
                         self.keysListView.setModel(ListModel(self.keys[index.data()]))
-                    self.varListView.model()._data = list(set(self.varListView.model()._data).difference(set(self.keysListView.model()._data)))
+                    self.varListView.model()._data = list(
+                        set(self.varListView.model()._data).difference(set(self.keysListView.model()._data)))
                 else:
                     self.keysListView.setModel(ListModel([]))
 
     def loadOldListView(self):
         try:
-            self.oldVarsAll = pd.read_excel(self.oldLineEdit.text(),sheet_name=None)
+            self.oldVarsAll = pd.read_excel(self.oldLineEdit.text(), sheet_name=None).replace(np.nan, '')
         except:
             msg = customQMessageBox()
             msg.setText("Cannot read old excel File")
             msg.exec_()
             return
         for sheet in self.oldVarsAll.keys():
-            self.oldVarsAll[sheet].columns =  [str(x).upper() for x in self.oldVarsAll[sheet].columns]
+            self.oldVarsAll[sheet].columns = [str(x).upper() for x in self.oldVarsAll[sheet].columns]
         self.excludedListModel = ListModel(list(self.oldVarsAll.keys()))
         self.excludedListView.setModel(self.excludedListModel)
         self.includedListView.setModel(ListModel([]))
@@ -420,9 +437,11 @@ class ExcelCompare(QWidget):
         # self.keys = {sheet:[] for sheet in self.includedListView.model()._data}
 
     def setOldFilePath(self):
-        self.oldLineEdit.setText(QFileDialog.getOpenFileUrl(self,"Select Old Excel File",QUrl(rootPath),(u"*.xls *.xlsx"))[0].path().strip('/'))
+        self.oldLineEdit.setText(
+            QFileDialog.getOpenFileUrl(self, "Select Old Excel File", QUrl(rootPath), (u"*.xls *.xlsx"))[
+                0].path().strip('/'))
         self.oldLineEdit.setFocus()
-        if self.oldLineEdit.text() !='':
+        if self.oldLineEdit.text() != '':
             self.loadOldListView()
 
     def setupUi(self, Form):
@@ -602,7 +621,7 @@ class ExcelCompare(QWidget):
         self.comparePushButton.setObjectName(u"comparePushButton")
         self.comparePushButton.setMaximumSize(QSize(16777215, 16777215))
 
-        self.verticalLayout_7.addWidget(self.comparePushButton,alignment=Qt.AlignHCenter)
+        self.verticalLayout_7.addWidget(self.comparePushButton, alignment=Qt.AlignHCenter)
 
         self.retranslateUi(Form)
 
@@ -628,9 +647,8 @@ class ExcelCompare(QWidget):
         self.comparePushButton.setText(QCoreApplication.translate("Form", u"Compare", None))
 
 
-
 class SpecsSAS(QWidget):
-    def __init__(self,parent=None):
+    def __init__(self, parent=None):
         super(SpecsSAS, self).__init__(parent)
         self.err = ''
         self.specsFile = {}
@@ -639,12 +657,20 @@ class SpecsSAS(QWidget):
         self.missingTests = pd.DataFrame(columns=['Subject', 'Visit', 'Timepoint', 'Test Code'])
         self.varLineEdit.setText('LB')
 
-        self.specsPushButton.clicked.connect(lambda _:self.specsLineEdit.setText(QFileDialog.getOpenFileUrl(self,'Select Specs File',QUrl(rootPath),(u"*.xlsx"))[0].path().strip('/')))
-        self.sasPushButton.clicked.connect(lambda _:self.sasLineEdit.setText(QFileDialog.getOpenFileUrl(self,'Select SAS Dataset',QUrl(rootPath),(u"*.sas7bdat *.xpt"))[0].path().strip('/')))
-        self.logPushButton.clicked.connect(lambda _:self.logLineEdit.setText(QFileDialog.getExistingDirectoryUrl(self,'Select Folder to Store Findings',QUrl(rootPath)).path().strip('/')))
+        self.specsPushButton.clicked.connect(lambda _: self.specsLineEdit.setText(
+            QFileDialog.getOpenFileUrl(self, 'Select Specs File', QUrl(rootPath), (u"*.xlsx"))[0].path().strip('/')))
+        self.sasPushButton.clicked.connect(lambda _: self.sasLineEdit.setText(
+            QFileDialog.getOpenFileUrl(self, 'Select SAS Dataset', QUrl(rootPath), (u"*.sas7bdat *.xpt"))[
+                0].path().strip('/')))
+        self.logPushButton.clicked.connect(lambda _: self.logLineEdit.setText(
+            QFileDialog.getExistingDirectoryUrl(self, 'Select Folder to Store Findings', QUrl(rootPath)).path().strip(
+                '/')))
         self.comparePushButton.clicked.connect(self.compare)
 
     def compare(self):
+        self.majorFindings = pd.DataFrame(columns=['Message', 'Details'])
+        self.missingTests = pd.DataFrame(columns=['Subject', 'Visit', 'Timepoint', 'Test Code'])
+        self.specsFile = {}
         msg = customQMessageBox()
         # msg.setButtons(1)
         msg.setWindowTitle("Warning")
@@ -664,12 +690,12 @@ class SpecsSAS(QWidget):
             msg.setText('Subject variable not specified')
             msg.exec_()
             return
-        if self.subjLineEdit.text() == '':
+        if self.varLineEdit.text() == '':
             msg.setText('Variable prefix not specified. Usually it is first 2 letters of SDTM domain. .E.g. LB')
             msg.exec_()
             return
         try:
-            specsFile = pd.read_excel(self.specsLineEdit.text(),sheet_name=None)
+            specsFile = pd.read_excel(self.specsLineEdit.text(), sheet_name=None)
             for sheet in specsFile.keys():
                 self.specsFile[sheet.lower()] = specsFile[sheet]
 
@@ -680,14 +706,14 @@ class SpecsSAS(QWidget):
         try:
             baseName = os.path.basename(self.sasLineEdit.text())
             if baseName.split('.')[-1] == 'xpt':
-                self.sasData,self.meta = pyreadstat.read_xport(self.sasLineEdit.text())
+                self.sasData, self.meta = pyreadstat.read_xport(self.sasLineEdit.text())
             else:
-                self.sasData,self.meta = pyreadstat.read_sas7bdat(self.sasLineEdit.text())
+                self.sasData, self.meta = pyreadstat.read_sas7bdat(self.sasLineEdit.text())
         except:
             msg.setText('Unable to read SAS data file')
             msg.exec_()
             return
-        #Compare after validation
+        # Compare after validation
         # print(self.sasData)
         self.structureCheck()
         if len(self.err) > 0:
@@ -704,83 +730,95 @@ class SpecsSAS(QWidget):
             msg.setText(self.err)
             msg.exec_()
             return
-        #structure sheet
+        # structure sheet
         date = datetime.now().strftime("%Y-%m-%d %H-%M")
         logFile = os.path.join(self.logLineEdit.text(), f"compare_{date}.xlsx")
-        writer = pd.ExcelWriter(logFile,engine='xlsxwriter')
-        dfs = {'Major Findings': self.majorFindings,'Missing Tests':self.missingTests}
+        writer = pd.ExcelWriter(logFile, engine='xlsxwriter')
+        dfs = {'Major Findings': self.majorFindings, 'Missing Tests': self.missingTests}
         for sheetname, df in dfs.items():
             df.to_excel(writer, sheet_name=sheetname, index=False)
             worksheet = writer.sheets[sheetname]
             for i, col in enumerate(df.columns):
                 col_len = df[col].astype(str).str.len().mean()
                 col_len = max(col_len, len(col)) + 2
-                col_len = len(col)*3 if col_len > len(col)*3 else col_len
+                col_len = len(col) * 3 if col_len > len(col) * 3 else col_len
                 worksheet.set_column(i, i, col_len)
         writer.save()
         msg.setWindowTitle("Completed")
         msg.setText(f'Comparison Completed. Check the files compare_{date}.xlsx in selected folder for findings.')
         msg.exec_()
 
-
     def structureCheck(self):
         self.err = ''
         if 'structure' not in self.specsFile.keys():
-
             # print("Failed")
             self.err = "Structure sheet not found in file"
-            self.majorFindings  = self.majorFindings.append(pd.DataFrame({"Message":['Structure sheet'],"Details":["Missing"]}))
+            self.majorFindings = self.majorFindings.append(
+                pd.DataFrame({"Message": ['Structure sheet'], "Details": ["Missing"]}))
             return
         print("Success")
-        self.majorFindings  = self.majorFindings.append(pd.DataFrame({"Message": ['Structure sheet'], "Details":[ "Found"]}))
-        if len(set(['variable','variable label']).difference([x.lower() for x in self.specsFile['structure'].columns.to_list()]))>0:
-            self.err = "Variables missing in structure sheet"
-            self.majorFindings  = self.majorFindings.append(pd.DataFrame({"Message": ['Structure Sheet with Variables ‘Variable’ & ’Variable Label’'], "Details": ["Missing"]}))
+        # self.majorFindings  = self.majorFindings.append(pd.DataFrame({"Message": ['Structure sheet'], "Details":[ "Found"]}))
+        if len(set(['variable', 'variable label']).difference(
+                [x.lower() for x in self.specsFile['structure'].columns.to_list()])) > 0:
+            self.err = "Important variables ‘Variable’ and/or ‘Variable Label’ are missing in structure sheet! Comparison will stop."
+            self.majorFindings = self.majorFindings.append(pd.DataFrame(
+                {"Message": ['Structure Sheet with Variables ‘Variable’ & ’Variable Label’'], "Details": ["Missing"]}))
             # print("Failed")
             return
         else:
             print("Success")
-            self.majorFindings  = self.majorFindings.append(pd.DataFrame(
-                {"Message": ['Structure Sheet with Variables ‘Variable’ & ’Variable Label’'], "Details": ["Found"]}))
+            # self.majorFindings  = self.majorFindings.append(pd.DataFrame(
+            # {"Message": ['Structure Sheet with Variables ‘Variable’ & ’Variable Label’'], "Details": ["Found"]}))
 
-        varWithLabels = pd.DataFrame({"Variable": list(self.meta.column_names), "Variable Label": list(self.meta.column_labels)})
-        # merged = self.specsFile['structure'].merge(varWithLabels, on =["Variable","Variable Label"], how='outer', indicator=True)
-        missingVariables = list(set(self.specsFile['structure']['Variable'].dropna().to_list()).difference(varWithLabels['Variable'].dropna().to_list()))
-        extraVariables = list(set(varWithLabels['Variable'].dropna().to_list()).difference(self.specsFile['structure']['Variable'].dropna().to_list()))
+        varWithLabels = pd.DataFrame(
+            {"Variable": list(self.meta.column_names), "Variable Label": list(self.meta.column_labels)})
+        merged = self.specsFile['structure'].merge(varWithLabels, on="Variable", how='outer', indicator=True)
+        missingVariables = merged[merged['_merge'] == "left_only"]['Variable'].to_list()
+        extraVariables = merged[merged['_merge'] == "right_only"]['Variable'].to_list()
+        # incorrectLabels = pd.DataFrame({"Variable":self.meta.column_names_to_labels.keys(),"Variable Label":self.meta.column_names_to_labels.values()})
+        merged = merged.dropna(how='any')
+        incorrectLabels = merged.iloc[np.where(merged['Variable Label_y'] != merged['Variable Label_x'])][
+            'Variable'].to_list()
         self.majorFindings = self.majorFindings.append(pd.DataFrame(
-            {"Message": ['Structure: Missing Variables'], "Details":", ".join(missingVariables)}))
+            {"Message": ['Structure: Missing Variables'], "Details": ", ".join(missingVariables)}))
         self.majorFindings = self.majorFindings.append(pd.DataFrame(
             {"Message": ['Structure: Extra Variables'], "Details": ", ".join(extraVariables)}))
         self.majorFindings = self.majorFindings.append(pd.DataFrame(
-            {"Message": ['Structure: Variables with Incorrect Labels'], "Details": ", ".join(extraVariables)}))
+            {"Message": ['Structure: Variables with Incorrect Labels'], "Details": ", ".join(incorrectLabels)}))
 
     def paramCheck(self):
         self.err = ''
         if 'param' not in self.specsFile.keys():
             # print("Failed")
             self.err = "Param sheet not found in file"
-            self.majorFindings = self.majorFindings.append(pd.DataFrame({"Message":["Param sheet"],"Details":["Missing"]}))
+            self.majorFindings = self.majorFindings.append(
+                pd.DataFrame({"Message": ["Param sheet"], "Details": ["Missing"]}))
             return
         print("Success")
-        self.majorFindings = self.majorFindings.append(
-            pd.DataFrame({"Message": ["Param sheet"], "Details": ["Found"]}))
-        self.specsFile['param'] = self.specsFile['param'].dropna(axis=1,how='all') #remove this
-        if len(set(self.specsFile['param'].columns).difference(self.sasData.columns)) >0 :
+        # self.majorFindings = self.majorFindings.append(
+        #     pd.DataFrame({"Message": ["Param sheet"], "Details": ["Found"]}))
+        self.specsFile['param'] = self.specsFile['param'].dropna(axis=1, how='all')  # remove this
+        if len(set(self.specsFile['param'].columns).difference(self.sasData.columns)) > 0:
             # print("Failed")
             self.err = "Matching Variables not found in data"
             self.majorFindings = self.majorFindings.append(
                 pd.DataFrame({"Message": ["Param: Matching Variables in Data"], "Details": ["Missing"]}))
             return
         print("Success")
+        # self.majorFindings = self.majorFindings.append(
+        # pd.DataFrame({"Message": ["Param: Matching Variables in Data"], "Details": ["Found"]}))
+        merged = self.specsFile['param'].merge(self.sasData[self.specsFile['param'].columns].drop_duplicates(),
+                                               how='outer', indicator=True)
+        missingInData = merged[merged['_merge'] == 'right_only'].astype(str).apply(lambda x: ", ".join(x[:-1]), axis=1)
         self.majorFindings = self.majorFindings.append(
-        pd.DataFrame({"Message": ["Param: Matching Variables in Data"], "Details": ["Found"]}))
-        merged = self.specsFile['param'].merge(self.sasData[self.specsFile['param'].columns], how='outer', indicator=True)
-        missingInData = merged[merged['_merge']=='right_only'].astype(str).apply(lambda x:", ".join(x[:-1]),axis=1)
+            pd.DataFrame(
+                {"Message": "Param: Value combination missing in Data " + f"({', '.join(merged.columns[:-1])})",
+                 "Details": missingInData.values}))
+        missingInSpecs = merged[merged['_merge'] == 'left_only'].astype(str).apply(lambda x: ", ".join(x[:-1]), axis=1)
         self.majorFindings = self.majorFindings.append(
-            pd.DataFrame({"Message": "Param: Value combination missing in Data "+f"({', '.join(merged.columns[:-1])})", "Details": missingInData.values}))
-        missingInSpecs = merged[merged['_merge']=='left_only'].astype(str).apply(lambda x:", ".join(x[:-1]),axis=1)
-        self.majorFindings = self.majorFindings.append(
-            pd.DataFrame({"Message": "Param: Value combination missing in specs "+f"({', '.join(merged.columns[:-1])})", "Details":  missingInSpecs.values}))
+            pd.DataFrame(
+                {"Message": "Param: Value combination missing in specs " + f"({', '.join(merged.columns[:-1])})",
+                 "Details": missingInSpecs.values}))
 
     def visitCheck(self):
         self.err = ''
@@ -794,7 +832,7 @@ class SpecsSAS(QWidget):
             return
         print("Success")
 
-        if len(set(['VISIT','VISITNUM']).intersection(self.specsFile['visit'].columns)) <1:
+        if len(set(['VISIT', 'VISITNUM']).intersection(self.specsFile['visit'].columns)) < 1:
             # print("Failed")
             self.err = "VISIT & VISITNUM not found in specs file"
             self.majorFindings = self.majorFindings.append(
@@ -815,31 +853,32 @@ class SpecsSAS(QWidget):
 
             return
         print("Success")
-        self.majorFindings = self.majorFindings.append(
-            pd.DataFrame(
-                {"Message": ["Visit Sheet with VISIT & VISITNUM"],
-                 "Details": ["Found"]}))
+        # self.majorFindings = self.majorFindings.append(
+        # pd.DataFrame(
+        # {"Message": ["Visit Sheet with VISIT & VISITNUM"],
+        # "Details": ["Found"]}))
 
-        merged = self.specsFile['visit'].merge(self.sasData[["VISIT","VISITNUM"]],how='outer',indicator=True)
+        merged = self.specsFile['visit'].merge(self.sasData[["VISIT", "VISITNUM"]].drop_duplicates(), how='outer',
+                                               indicator=True)
         missingInData = merged[merged['_merge'] == 'left_only'][['VISIT', 'VISITNUM']]
         missingInData = missingInData.astype(str).apply(lambda x: "/".join(x), axis=1)
         self.majorFindings = self.majorFindings.append(
             pd.DataFrame(
                 {"Message": "Visit: Visit/VISITNUM Combination Missing in Data",
-                 "Details":  list(set(missingInData.values))}))
+                 "Details": list(set(missingInData.values))}))
 
         missingInSpecs = merged[merged['_merge'] == 'right_only'][['VISIT', 'VISITNUM']]
         missingInSpecs = missingInSpecs.astype(str).apply(lambda x: "/".join(x), axis=1)
         self.majorFindings = self.majorFindings.append(
             pd.DataFrame(
                 {"Message": "Visit: Visit/VISITNUM Combination Missing in Specs",
-                 "Details":  list(set(missingInSpecs.values))}))
+                 "Details": list(set(missingInSpecs.values))}))
 
         # subjVar = "VISITNUM"
         subjVar = self.subjLineEdit.text().upper()
         prefix = self.varLineEdit.text().upper()
-        prefixVar = prefix+"TPT"
-        if len(set([subjVar,'VISIT',prefixVar]).intersection(self.specsFile['visit'].columns)) <1:
+        prefixVar = prefix + "TPT"
+        if len(set([subjVar, 'VISIT', prefixVar]).intersection(self.specsFile['visit'].columns)) < 1:
             # print("Failed")
             self.err = "Variables not found in specs or data file"
             self.majorFindings = self.majorFindings.append(
@@ -848,7 +887,7 @@ class SpecsSAS(QWidget):
                      "Details": ["Missing"]}))
             return
         print("Success")
-        if len(set([subjVar,'VISIT',prefixVar]).intersection(self.sasData.columns)) <1:
+        if len(set([subjVar, 'VISIT', prefixVar]).intersection(self.sasData.columns)) < 1:
             # print("Failed")
             self.err = "Variables not found in specs or data file"
             self.majorFindings = self.majorFindings.append(
@@ -858,26 +897,30 @@ class SpecsSAS(QWidget):
             return
         print("Success")
 
-        self.majorFindings = self.majorFindings.append(
-            pd.DataFrame(
-                {"Message": f"Visit: {subjVar}/VISIT/{prefixVar} variables in both specs & Data",
-                 "Details": ["Found"]}))
+        # self.majorFindings = self.majorFindings.append(
+        #     pd.DataFrame(
+        #         {"Message": f"Visit: {subjVar}/VISIT/{prefixVar} variables in both specs & Data",
+        #          "Details": ["Found"]}))
 
-        #get data from sas and remove duplicates
+        # get data from sas and remove duplicates
 
-
-        self.missingTests = pd.DataFrame(columns=["Subject","Visit","Timepoint","Test Code"])
-        possibleCombinations = self.specsFile['visit'].drop_duplicates().assign(foo=1).merge(self.sasData.assign(foo=1)).drop('foo',1)[['VISIT',prefixVar,subjVar]].sort_values(subjVar).drop_duplicates().assign(foo=1).merge(self.specsFile['param'][[prefix+"TESTCD"]].assign(foo=1)).drop('foo',1).drop_duplicates()
+        self.missingTests = pd.DataFrame(columns=["Subject", "Visit", "Timepoint", "Test Code"])
+        possibleCombinations = \
+        self.specsFile['visit'].drop_duplicates().assign(foo=1).merge(self.sasData.assign(foo=1)).drop('foo', 1)[
+            ['VISIT', prefixVar, subjVar]].sort_values(subjVar).drop_duplicates().assign(foo=1).merge(
+            self.specsFile['param'][[prefix + "TESTCD"]].assign(foo=1)).drop('foo', 1).drop_duplicates()
 
         # self.specsFile['visit'] = self.specsFile['visit'].append({k: np.nan for k in self.specsFile['visit'].columns},
         #                                                          ignore_index=True)
         # self.specsFile['visit'] =self.specsFile['visit'].iloc[:-1,:]
-        merged = possibleCombinations.merge(self.sasData[[subjVar, 'VISIT', prefixVar, prefix + 'TESTCD']],how='outer',indicator=True)
-        missingInData = merged[merged['_merge']=='left_only']
+        merged = possibleCombinations.merge(self.sasData[[subjVar, 'VISIT', prefixVar, prefix + 'TESTCD']], how='outer',
+                                            indicator=True)
+        missingInData = merged[merged['_merge'] == 'left_only']
         self.missingTests['Subject'] = missingInData[subjVar]
         self.missingTests['Visit'] = missingInData['VISIT']
         self.missingTests['Timepoint'] = missingInData[prefixVar]
-        self.missingTests['Test Code'] = missingInData[prefix+"TESTCD"]
+        self.missingTests['Test Code'] = missingInData[prefix + "TESTCD"]
+        # if self.missingTests.shape[0] == 0:
 
     def setupUi(self, Form):
         if not Form.objectName():
